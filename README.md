@@ -111,6 +111,57 @@ graph TD
 
 ---
 
+## 🚀 Getting Started & Installation
+
+### 1️⃣ Prerequisites
+- **Python 3.10+** installed on your system.
+- **ADB (Android Debug Bridge)** installed and added to your system PATH.
+- An Android device (or emulator) connected via USB or Wi-Fi with **USB Debugging enabled**.
+
+### 2️⃣ Clone the Repository
+```bash
+git clone https://github.com/amenallahbarkaoui-github/Phone-Brain-The-Elite-AI-Android-Automation-Agent.git
+cd Phone-Brain-The-Elite-AI-Android-Automation-Agent
+```
+
+### 3️⃣ Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 4️⃣ Environment Configuration
+Create an environment file by copying the provided example:
+```bash
+cp .env.example .env
+```
+Inside the `.env` file, populate your secure keys:
+```ini
+LLM_API_KEY=your_api_key_here
+LLM_MODEL=google/gemini-2.0-flash-001
+LLM_BASE_URL=https://openrouter.ai/api/v1
+FLASK_SECRET_KEY=your_secret_flask_key_here
+ADB_PATH=adb
+DEVICE_SERIAL=  # Leave blank for default device, or enter your specific device serial
+```
+
+### 5️⃣ Running the Application
+
+You can start the project in two ways:
+
+#### Option A: High-Performance Web Dashboard (Recommended)
+Launch the interactive web UI to monitor the agent's real-time reasoning, visual DOM hierarchy, and task progress:
+```bash
+python web_server.py
+```
+Then, open your browser and navigate to `http://localhost:5000`.
+
+#### Option B: Headless Command-Line Mode
+To run queries directly from your terminal:
+```bash
+python phone_brain.py "Open YouTube and search for Lo-Fi Music"
+```
+
+---
 <div align="center">
   <p><b>Built with precision. Engineered for resilience.</b></p>
 </div>
