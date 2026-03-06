@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Brain v2 - AI Android Control</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* ══════════════════════════════════════════════════════════════ */
+        /* CSS RESET & VARIABLES                                         */
+        /* ══════════════════════════════════════════════════════════════ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a26;
+            --bg-card: #16161f;
+            --bg-hover: #1e1e2d;
+            --bg-input: #1a1a28;
+            --border: #2a2a3d;
+            --border-light: #33334d;
+            --text-primary: #e8e8f0;
+            --text-secondary: #9898b0;
+            --text-muted: #6a6a85;
+            --accent: #6c5ce7;
+            --accent-light: #a29bfe;
+            --accent-glow: rgba(108, 92, 231, 0.3);
+            --green: #00d68f;
+            --green-glow: rgba(0, 214, 143, 0.2);
+            --red: #ff6b6b;
+            --red-glow: rgba(255, 107, 107, 0.2);
+            --yellow: #ffd93d;
+            --yellow-glow: rgba(255, 217, 61, 0.2);
+            --blue: #4fc3f7;
+            --blue-glow: rgba(79, 195, 247, 0.2);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-lg: 16px;
+            --shadow: 0 4px 24px rgba(0,0,0,0.4);
+            --shadow-lg: 0 8px 40px rgba(0,0,0,0.6);
+            --transition: all 0.2s ease;
+            --font: 'Inter', -apple-system, sans-serif;
+            --mono: 'JetBrains Mono', monospace;
+        }
+
+        html { font-size: 14px; }
+        body {
+            font-family: var(--font);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+
+        /* ══════════════════════════════════════════════════════════════ */
+        /* HEADER                                                        */
+        /* ══════════════════════════════════════════════════════════════ */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(12px);
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .logo {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--accent), #a29bfe);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 800;
+            color: white;
+            box-shadow: 0 2px 12px var(--accent-glow);
+        }
+        .header-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--text-primary), var(--accent-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header-subtitle {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .device-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .device-badge .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--red);
+            transition: var(--transition);
+        }
+        .device-badge .dot.connected {
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green-glow);
+        }
+
+        /* ══════════════════════════════════════════════════════════════ */
+        /* MAIN LAYOUT                                                   */
+        /* ══════════════════════════════════════════════════════════════ */
+        .main {
+            display: grid;
+            grid-template-columns: 340px 1fr 380px;
+            gap: 0;
+            height: calc(100vh - 61px);
+        }
+
+        .panel {
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .panel:last-child { border-right: none; }
+
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        .panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+        }
+
+        /* ══════════════════════════════════════════════════════════════ */
+        /* LEFT PANEL - PHONE PREVIEW                                    */
+        /* ══════════════════════════════════════════════════════════════ */
+        .phone-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 16px;
+            flex: 1;
+        }
+        .phone-frame {
+            background: #000;
+            border-radius: 28px;
+            padding: 8px;
+            border: 2px solid var(--border);
+            box-shadow: var(--shadow-lg);
+            max-width: 280px;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        .phone-notch {
+            width: 80px;
+            height: 20px;
+            background: #000;
+            border-radius: 0 0 12px 12px;
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 5;
+        }
+        .phone-screen {
+            width: 100%;
+            aspect-ratio: 9/19.5;
+            background: var(--bg-tertiary);
+            border-radius: 20px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .phone-screen img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .phone-screen .placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        .placeholder-icon {
+            font-size: 2.5rem;
+            opacity: 0.3;
+        }
+
+        .phone-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .phone-btn {
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: var(--font);
+        }
+        .phone-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border-color: var(--accent);
+        }
+
+        /* ══════════════════════════════════════════════════════════════ */
+        /* CENTER PANEL - TASK CONTROL                                   */
+        /* ══════════════════════════════════════════════════════════════ */
+        .center-panel {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .task-input-area {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .task-form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: stretch;
+            gap: 10px;
+        }
+        .task-input {
+            flex: 1;
+            padding: 14px 18px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-family: var(--font);
+            outline: none;
+            transition: var(--transition);
+        }
+        .task-input::placeholder {
+            color: var(--text-muted);
+        }
+        .task-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .run-btn {
+            padding: 14px 28px;
+            background: linear-gradient(135deg, var(--accent), #8b7cf7);
+            border: none;
+            border-radius: var(--radius);
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: var(--font);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+        .run-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+        .run-btn:active { transform: translateY(0); }
+        .run-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .run-btn.stop {
+            background: linear-gradient(135deg, var(--red), #ff8888);
+        }
+
+        .task-options {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .option-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .option-group input[type="number"] {
+            width: 60px;
+            padding: 5px 8px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            outline: none;
+        }
+        .option-group input[type="number"]:focus {
+            border-color: var(--accent);
+        }
+        .toggle-switch {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            cursor: pointer;
+        }
+        .toggle-switch input { display: none; }
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: var(--border);
+            border-radius: 10px;
+            transition: var(--transition);
+        }
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            left: 2px;
+            top: 2px;
+            transition: var(--transition);
+        }
+        .toggle-switch input:checked + .toggle-slider {
+            background: var(--accent);
+        }
+        .toggle-switch input:checked + .toggle-slider::before {
+            transform: translateX(16px);
+        }
+
+        /* Status bar */
+        .status-bar {
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+        .status-dot.idle { background: var(--text-muted); }
+        .status-dot.running {
+            background: var(--blue);
+            animation: pulse 1.5s infinite;
+        }
+        .status-dot.done {
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green-glow);
+        }
+        .status-dot.failed {
+            background: var(--red);
+            box-shadow: 0 0 8px var(--red-glow);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.85); }
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-light));
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        .step-counter {
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Agent thought area */
+        .thought-area {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            min-height: 70px;
+            max-height: 130px;
+            overflow-y: auto;
+        }
+        .thought-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+        .thought-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            font-style: italic;
+        }
+        .thought-text.empty {
+            color: var(--text-muted);
+            font-style: normal;
+        }
+
+        /* History list */
+        .history-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 20px;
+        }
+        .history-item {
+            display: flex;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(42,42,61,0.5);
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .history-step {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.72rem;
+            font-weight: 600;
+            flex-shrink: 0;
+            font-family: var(--mono);
+        }
+        .history-step.success {
+            background: var(--green-glow);
+            color: var(--green);
+            border: 1px solid rgba(0, 214, 143, 0.3);
+        }
+        .history-step.fail {
+            background: var(--red-glow);
+            color: var(--red);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+        }
+        .history-content {
+            flex: 1;
+            min-width: 0;
+        }
+        .history-action {
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            color: var(--accent-light);
+            margin-bottom: 2px;
+        }
+        .history-result {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .history-thought-toggle {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            margin-top: 4px;
+            display: inline-block;
+        }
+        .history-thought-toggle:hover { color: var(--accent-light); }
+        .history-thought-content {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            line-height: 1.4;
+            display: none;
+            background: var(--bg-tertiary);
+            padding: 8px 10px;
+            border-radius: var(--radius-sm);
+        }
+        .history-thought-content.show { display: block; }
+
+        /* ══════════════════════════════════════════════════════════════ */
+        /* RIGHT PANEL - QUICK ACTIONS & INFO                            */
+        /* ══════════════════════════════════════════════════════════════ */
+        .right-panel .panel-body {
+            padding: 0;
+        }
+
+        .info-section {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .info-section-title {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .info-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px;
+        }
+        .info-card-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-bottom: 3px;
+        }
+        .info-card-value {
+            font-family: var(--mono);
+            font-size: 0.82rem;
+            color: var(--text-primary);
+        }
+
+        /* Quick actions grid */
+        .quick-actions-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+        }
+        .quick-action-btn {
+            padding: 10px 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: var(--font);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        .quick-action-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border-color: var(--accent);
+        }
+        .quick-action-btn .qa-icon {
+            font-size: 1.2rem;
+        }
+
+        /* Example tasks */
+        .example-tasks {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .example-task {
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: var(--transition);
+            line-height: 1.4;
+        }
+        .example-task:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        /* ══════════════════════════════════════════════════════════════ */
+        /* MODAL (ask_user)                                              */
+        /* ══════════════════════════════════════════════════════════════ */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.show {
+            display: flex;
+        }
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            width: 90%;
+            max-width: 460px;
+            box-shadow: var(--shadow-lg);
+            animation: modalIn 0.2s ease;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--accent-light);
+        }
+        .modal-question {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+        .modal-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-family: var(--font);
+            outline: none;
+            margin-bottom: 16px;
+        }
+        .modal-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .modal-btn {
+            padding: 10px 20px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: var(--font);
+            border: 1px solid var(--border);
+        }
+        .modal-btn.primary {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+        .modal-btn.primary:hover {
+            background: var(--accent-light);
+        }
+        .modal-btn.secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+
+        /* ══════════════════════════════════════════════════════════════ */
+        /* TOAST NOTIFICATIONS                                           */
+        /* ══════════════════════════════════════════════════════════════ */
+        .toast-container {
+            position: fixed;
+            top: 72px;
+            right: 20px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .toast {
+            padding: 12px 18px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            box-shadow: var(--shadow);
+            animation: toastIn 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 360px;
+        }
+        .toast.success { border-left: 3px solid var(--green); }
+        .toast.error { border-left: 3px solid var(--red); }
+        .toast.info { border-left: 3px solid var(--blue); }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ══════════════════════════════════════════════════════════════ */
+        /* RESPONSIVE                                                    */
+        /* ══════════════════════════════════════════════════════════════ */
+        @media (max-width: 1100px) {
+            .main {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr auto;
+            }
+            .panel { border-right: none; border-bottom: 1px solid var(--border); }
+            .phone-container { padding: 12px; }
+            .phone-frame { max-width: 200px; }
+        }
+
+        /* Typing indicator */
+        .typing-dots {
+            display: inline-flex;
+            gap: 3px;
+            align-items: center;
+        }
+        .typing-dots span {
+            width: 5px;
+            height: 5px;
+            background: var(--accent-light);
+            border-radius: 50%;
+            animation: bounce 1.2s infinite;
+        }
+        .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-4px); }
+        }
+
+        /* Shimmer loading */
+        .shimmer {
+            background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- HEADER                                                        -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<header class="header">
+    <div class="header-left">
+        <div class="logo">R</div>
+        <div>
+            <div class="header-title">Phone Brain v2</div>
+            <div class="header-subtitle">AI-Powered Android Control Agent</div>
+        </div>
+    </div>
+    <div class="header-right">
+        <div class="device-badge" id="deviceBadge">
+            <span class="dot" id="deviceDot"></span>
+            <span id="deviceLabel">Connecting...</span>
+        </div>
+    </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- MAIN LAYOUT                                                    -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="main">
+
+    <!-- LEFT - Phone Preview -->
+    <div class="panel">
+        <div class="panel-header">
+            <span>Device Preview</span>
+            <button class="phone-btn" onclick="takeScreenshot()">Refresh</button>
+        </div>
+        <div class="phone-container">
+            <div class="phone-frame">
+                <div class="phone-notch"></div>
+                <div class="phone-screen" id="phoneScreen">
+                    <div class="placeholder" id="phonePlaceholder">
+                        <div class="placeholder-icon">&#128241;</div>
+                        <span>No screenshot yet</span>
+                    </div>
+                    <img id="phoneImage" style="display:none" alt="Phone Screen" />
+                </div>
+            </div>
+            <div class="phone-actions">
+                <button class="phone-btn" onclick="quickAction('press_key', {key:'HOME'})">Home</button>
+                <button class="phone-btn" onclick="quickAction('press_key', {key:'BACK'})">Back</button>
+                <button class="phone-btn" onclick="quickAction('press_key', {key:'RECENT'})">Recent</button>
+                <button class="phone-btn" onclick="quickAction('scroll', {direction:'DOWN'})">Scroll</button>
+                <button class="phone-btn" onclick="quickAction('open_notifications', {})">Notify</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CENTER - Task Control -->
+    <div class="panel center-panel">
+        <div class="task-input-area">
+            <div class="task-form">
+                <div class="input-wrapper">
+                    <input type="text" class="task-input" id="taskInput"
+                           placeholder="Tell the AI what to do on your phone..."
+                           onkeydown="if(event.key==='Enter')runTask()" />
+                    <button class="run-btn" id="runBtn" onclick="runTask()">
+                        <span id="runBtnIcon">&#9654;</span>
+                        <span id="runBtnText">Run</span>
+                    </button>
+                </div>
+                <div class="task-options">
+                    <div class="option-group">
+                        <span>Max steps:</span>
+                        <input type="number" id="maxSteps" value="60" min="1" max="200" />
+                    </div>
+                    <div class="option-group">
+                        <span>Reasoning:</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="reasoningToggle" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="option-group">
+                        <span>Turbo (XML only):</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="turboToggle" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Idle</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <span class="step-counter" id="stepCounter">0/60</span>
+        </div>
+
+        <div class="thought-area">
+            <div class="thought-label">Agent Thinking</div>
+            <div class="thought-text empty" id="thoughtText">Waiting for a task...</div>
+        </div>
+
+        <div class="history-area" id="historyArea">
+            <!-- History items injected here -->
+        </div>
+    </div>
+
+    <!-- RIGHT - Quick Actions & Info -->
+    <div class="panel right-panel">
+        <div class="panel-header">Controls & Info</div>
+        <div class="panel-body">
+
+            <!-- Device Info -->
+            <div class="info-section">
+                <div class="info-section-title">Device</div>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-card-label">Screen</div>
+                        <div class="info-card-value" id="infoScreen">--</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-card-label">Status</div>
+                        <div class="info-card-value" id="infoStatus">--</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-card-label">Model</div>
+                        <div class="info-card-value" id="infoModel">--</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-card-label">Android</div>
+                        <div class="info-card-value" id="infoAndroid">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="info-section">
+                <div class="info-section-title">Quick Actions</div>
+                <div class="quick-actions-grid">
+                    <button class="quick-action-btn" onclick="quickAction('press_key',{key:'HOME'})">
+                        <span class="qa-icon">&#127968;</span> Home
+                    </button>
+                    <button class="quick-action-btn" onclick="quickAction('press_key',{key:'BACK'})">
+                        <span class="qa-icon">&#11013;</span> Back
+                    </button>
+                    <button class="quick-action-btn" onclick="quickAction('press_key',{key:'RECENT'})">
+                        <span class="qa-icon">&#128196;</span> Recents
+                    </button>
+                    <button class="quick-action-btn" onclick="quickAction('scroll',{direction:'UP'})">
+                        <span class="qa-icon">&#11014;</span> Scroll Up
+                    </button>
+                    <button class="quick-action-btn" onclick="quickAction('scroll',{direction:'DOWN'})">
+                        <span class="qa-icon">&#11015;</span> Scroll Down
+                    </button>
+                    <button class="quick-action-btn" onclick="quickAction('open_notifications',{})">
+                        <span class="qa-icon">&#128276;</span> Notify
+                    </button>
+                    <button class="quick-action-btn" onclick="quickAction('open_quick_settings',{})">
+                        <span class="qa-icon">&#9881;</span> Quick Set
+                    </button>
+                    <button class="quick-action-btn" onclick="quickAction('press_key',{key:'ENTER'})">
+                        <span class="qa-icon">&#9166;</span> Enter
+                    </button>
+                    <button class="quick-action-btn" onclick="takeScreenshot()">
+                        <span class="qa-icon">&#128247;</span> Screenshot
+                    </button>
+                </div>
+            </div>
+
+            <!-- Launch App -->
+            <div class="info-section">
+                <div class="info-section-title">Launch App</div>
+                <div class="input-wrapper" style="gap:8px">
+                    <input type="text" class="task-input" id="appNameInput"
+                           placeholder="App name (e.g. youtube)"
+                           style="padding:10px 14px; font-size:0.82rem"
+                           onkeydown="if(event.key==='Enter')launchApp()" />
+                    <button class="phone-btn" onclick="launchApp()" style="padding:10px 14px">Launch</button>
+                </div>
+            </div>
+
+            <!-- Example Tasks -->
+            <div class="info-section">
+                <div class="info-section-title">Example Tasks</div>
+                <div class="example-tasks">
+                    <div class="example-task" onclick="setTask('Open YouTube and search for lofi music')">
+                        Open YouTube and search for lofi music
+                    </div>
+                    <div class="example-task" onclick="setTask('Turn on WiFi and set brightness to maximum')">
+                        Turn on WiFi and set brightness to maximum
+                    </div>
+                    <div class="example-task" onclick="setTask('Open Settings and check battery level')">
+                        Open Settings and check battery level
+                    </div>
+                    <div class="example-task" onclick="setTask('Open Chrome and go to google.com')">
+                        Open Chrome and go to google.com
+                    </div>
+                    <div class="example-task" onclick="setTask('Take a screenshot and go to home screen')">
+                        Take a screenshot and go to home screen
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- ASK USER MODAL                                                 -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="askUserModal">
+    <div class="modal">
+        <div class="modal-title">Agent needs your input</div>
+        <div class="modal-question" id="askUserQuestion">...</div>
+        <input type="text" class="modal-input" id="askUserInput"
+               placeholder="Type your answer..."
+               onkeydown="if(event.key==='Enter')submitAnswer()" />
+        <div class="modal-actions">
+            <button class="modal-btn secondary" onclick="submitAnswer('(declined)')">Skip</button>
+            <button class="modal-btn primary" onclick="submitAnswer()">Send</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- JAVASCRIPT                                                     -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<script>
+    // ── Socket connection ──
+    const socket = io();
+    let isRunning = false;
+
+    // ── Socket event handlers ──
+
+    socket.on('connect', () => {
+        console.log('Connected to server');
+    });
+
+    socket.on('disconnect', () => {
+        showToast('Disconnected from server', 'error');
+    });
+
+    socket.on('device_status', (data) => {
+        const dot = document.getElementById('deviceDot');
+        const label = document.getElementById('deviceLabel');
+
+        if (data.connected) {
+            dot.classList.add('connected');
+            label.textContent = data.screen_size || 'Connected';
+            document.getElementById('infoScreen').textContent = data.screen_size || '--';
+            document.getElementById('infoStatus').textContent = 'Connected';
+
+            // Parse device info
+            if (data.device_info) {
+                const lines = data.device_info.split('\n');
+                for (const line of lines) {
+                    if (line.includes('ro.product.model')) {
+                        document.getElementById('infoModel').textContent = line.split(': ')[1] || '--';
+                    }
+                    if (line.includes('ro.build.version.release')) {
+                        document.getElementById('infoAndroid').textContent = 'v' + (line.split(': ')[1] || '--');
+                    }
+                }
+            }
+            showToast('Device connected', 'success');
+        } else {
+            dot.classList.remove('connected');
+            label.textContent = 'Not connected';
+            document.getElementById('infoStatus').textContent = 'Disconnected';
+            showToast('Device not connected: ' + (data.message || ''), 'error');
+        }
+    });
+
+    socket.on('state_update', (data) => {
+        // Restore state if reconnecting
+        if (data.running) {
+            isRunning = true;
+            updateRunButton(true);
+        }
+        if (data.last_screenshot) {
+            showScreenshot(data.last_screenshot);
+        }
+        updateStatus(data.status, data.step, data.max_steps);
+    });
+
+    socket.on('task_started', (data) => {
+        isRunning = true;
+        updateRunButton(true);
+        document.getElementById('historyArea').innerHTML = '';
+        document.getElementById('thoughtText').textContent = data.turbo_mode
+            ? 'Starting task (Turbo XML-only mode)...'
+            : 'Starting task...';
+        document.getElementById('thoughtText').classList.remove('empty');
+        updateStatus('running', 0, data.max_steps);
+        showToast('Task started: ' + data.task + (data.turbo_mode ? ' [Turbo]' : ''), 'info');
+    });
+
+    socket.on('screenshot', (data) => {
+        showScreenshot(data.image);
+    });
+
+    socket.on('step_start', (data) => {
+        updateStatus('running', data.step, data.max_steps);
+    });
+
+    socket.on('step_update', (data) => {
+        if (data.phase === 'thinking') {
+            const label = data.message || 'AI is analyzing...';
+            document.getElementById('thoughtText').innerHTML =
+                escHtml(label) + ' <span class="typing-dots"><span></span><span></span><span></span></span>';
+            document.getElementById('thoughtText').classList.remove('empty');
+        } else if (data.phase === 'acting') {
+            document.getElementById('thoughtText').textContent = data.thought || 'Acting...';
+            document.getElementById('thoughtText').classList.remove('empty');
+        } else if (data.phase === 'loop_detected') {
+            document.getElementById('thoughtText').textContent = data.message || 'Loop detected';
+            document.getElementById('thoughtText').classList.remove('empty');
+            showToast(data.message || 'Loop detected', 'info');
+        } else if (data.phase === 'error') {
+            showToast(data.message, 'error');
+        }
+    });
+
+    socket.on('step_complete', (data) => {
+        addHistoryItem(data);
+        const pieces = [];
+        if (data.thought) pieces.push(data.thought);
+        if (data.subgoal) pieces.push(`Subgoal: ${data.subgoal}`);
+        if (data.success_check) pieces.push(`Check: ${data.success_check}`);
+        if (pieces.length) {
+            document.getElementById('thoughtText').textContent = pieces.join(' | ');
+            document.getElementById('thoughtText').classList.remove('empty');
+        }
+        updateStatus('running', data.step, document.getElementById('maxSteps').value);
+    });
+
+    socket.on('task_finished', (data) => {
+        isRunning = false;
+        updateRunButton(false);
+        const status = data.success ? 'done' : 'failed';
+        updateStatus(status, data.steps || 0, document.getElementById('maxSteps').value);
+        document.getElementById('thoughtText').textContent = data.message;
+        document.getElementById('thoughtText').classList.remove('empty');
+        showToast(
+            (data.success ? 'Task completed: ' : 'Task failed: ') + data.message,
+            data.success ? 'success' : 'error'
+        );
+    });
+
+    socket.on('task_stopped', (data) => {
+        isRunning = false;
+        updateRunButton(false);
+        updateStatus('idle', 0, document.getElementById('maxSteps').value);
+        showToast('Task stopped', 'info');
+    });
+
+    socket.on('ask_user', (data) => {
+        showAskUserModal(data.question);
+    });
+
+    socket.on('quick_action_result', (data) => {
+        showToast(`${data.action}: ${data.message}`, data.success ? 'success' : 'error');
+    });
+
+    socket.on('error', (data) => {
+        showToast(data.message, 'error');
+    });
+
+
+    // ── UI Functions ──
+
+    function showScreenshot(base64img) {
+        const img = document.getElementById('phoneImage');
+        const placeholder = document.getElementById('phonePlaceholder');
+        img.src = 'data:image/png;base64,' + base64img;
+        img.style.display = 'block';
+        placeholder.style.display = 'none';
+    }
+
+    function updateStatus(status, step, maxSteps) {
+        const dot = document.getElementById('statusDot');
+        const text = document.getElementById('statusText');
+        const progress = document.getElementById('progressFill');
+        const counter = document.getElementById('stepCounter');
+
+        dot.className = 'status-dot ' + status;
+
+        const labels = {
+            idle: 'Idle',
+            running: 'Running',
+            done: 'Completed',
+            failed: 'Failed'
+        };
+        text.textContent = labels[status] || status;
+        counter.textContent = step + '/' + maxSteps;
+
+        const pct = maxSteps > 0 ? (step / maxSteps * 100) : 0;
+        progress.style.width = pct + '%';
+
+        if (status === 'done') {
+            progress.style.background = 'linear-gradient(90deg, #00d68f, #00e6a0)';
+        } else if (status === 'failed') {
+            progress.style.background = 'linear-gradient(90deg, #ff6b6b, #ff8888)';
+        } else {
+            progress.style.background = 'linear-gradient(90deg, var(--accent), var(--accent-light))';
+        }
+    }
+
+    function updateRunButton(running) {
+        const btn = document.getElementById('runBtn');
+        const icon = document.getElementById('runBtnIcon');
+        const text = document.getElementById('runBtnText');
+
+        if (running) {
+            btn.classList.add('stop');
+            icon.innerHTML = '&#9724;';
+            text.textContent = 'Stop';
+            btn.onclick = stopTask;
+        } else {
+            btn.classList.remove('stop');
+            icon.innerHTML = '&#9654;';
+            text.textContent = 'Run';
+            btn.onclick = runTask;
+        }
+    }
+
+    function addHistoryItem(data) {
+        const area = document.getElementById('historyArea');
+        const item = document.createElement('div');
+        item.className = 'history-item';
+
+        const thoughtId = 'thought-' + data.step;
+
+        item.innerHTML = `
+            <div class="history-step ${data.success ? 'success' : 'fail'}">${data.step}</div>
+            <div class="history-content">
+                <div class="history-action">${escHtml(data.action)} ${escHtml(JSON.stringify(data.params || {}))}</div>
+                <div class="history-result">${escHtml(data.result)}</div>
+                ${data.thought ? `
+                    <span class="history-thought-toggle" onclick="toggleThought('${thoughtId}')">Show thought</span>
+                    <div class="history-thought-content" id="${thoughtId}">${escHtml(data.thought)}</div>
+                ` : ''}
+            </div>
+        `;
+        area.appendChild(item);
+        area.scrollTop = area.scrollHeight;
+    }
+
+    function toggleThought(id) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.toggle('show');
+            const toggle = el.previousElementSibling;
+            toggle.textContent = el.classList.contains('show') ? 'Hide thought' : 'Show thought';
+        }
+    }
+
+    function showAskUserModal(question) {
+        document.getElementById('askUserQuestion').textContent = question;
+        document.getElementById('askUserInput').value = '';
+        document.getElementById('askUserModal').classList.add('show');
+        document.getElementById('askUserInput').focus();
+    }
+
+    function submitAnswer(overrideAnswer) {
+        const answer = overrideAnswer || document.getElementById('askUserInput').value.trim();
+        socket.emit('answer_user', { answer: answer });
+        document.getElementById('askUserModal').classList.remove('show');
+    }
+
+    function showToast(message, type) {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = 'toast ' + (type || 'info');
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(20px)';
+            toast.style.transition = 'all 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
+    }
+
+    function escHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = String(str);
+        return div.innerHTML;
+    }
+
+
+    // ── User Actions ──
+
+    function runTask() {
+        if (isRunning) return;
+        const task = document.getElementById('taskInput').value.trim();
+        if (!task) {
+            showToast('Please enter a task', 'error');
+            document.getElementById('taskInput').focus();
+            return;
+        }
+
+        const maxSteps = parseInt(document.getElementById('maxSteps').value) || 60;
+        const reasoning = document.getElementById('reasoningToggle').checked;
+        const turboMode = document.getElementById('turboToggle').checked;
+
+        socket.emit('run_task', {
+            task: task,
+            max_steps: maxSteps,
+            reasoning: reasoning,
+            turbo_mode: turboMode
+        });
+    }
+
+    function stopTask() {
+        socket.emit('stop_task');
+    }
+
+    function takeScreenshot() {
+        socket.emit('take_screenshot');
+    }
+
+    function quickAction(action, params) {
+        socket.emit('quick_action', { action: action, params: params });
+    }
+
+    function launchApp() {
+        const name = document.getElementById('appNameInput').value.trim();
+        if (!name) return;
+        quickAction('launch_app_name', { name: name });
+    }
+
+    function setTask(task) {
+        document.getElementById('taskInput').value = task;
+        document.getElementById('taskInput').focus();
+    }
+
+</script>
+
+</body>
+</html>

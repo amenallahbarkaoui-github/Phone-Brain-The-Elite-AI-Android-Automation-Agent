@@ -1,0 +1,8 @@
+.env
+temp/
+__pycache__/
+memory/
+knowledge/
+*.pyc
+*.png
+*.jpg
